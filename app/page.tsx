@@ -75,6 +75,19 @@ type HistoryItem = {
   time: number;
 };
 
+type SearchVideo = {
+  id: string;
+  url: string;
+  description?: string;
+  author?: string;
+  nickname?: string;
+  cover?: string;
+  views?: number;
+  likes?: number;
+  comments?: number;
+  music?: string;
+};
+
 function formatNumber(value?: number) {
   if (typeof value !== "number") return "0";
 
@@ -347,6 +360,10 @@ function Icon({
 
 export default function Home() {
   const [url, setUrl] = useState("");
+  const [keyword, setKeyword] = useState("");
+  const [videos, setVideos] = useState<SearchVideo[]>([]);
+  const [searchingVideos, setSearchingVideos] = useState(false);
+  const [searchMessage, setSearchMessage] = useState("");
   const [result, setResult] =
     useState<FinderResult | null>(null);
 
@@ -503,6 +520,42 @@ export default function Home() {
     });
   }, [url, saveHistory, status]);
 
+  const searchVideos = async () => {
+    const q = keyword.trim();
+    if (q.length < 2) {
+      setSearchMessage("Masukkan minimal 2 karakter untuk mencari video.");
+      return;
+    }
+    setSearchingVideos(true);
+    setVideos([]);
+    setSearchMessage("Mencari video TikTok...");
+    try {
+      const response = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || "Pencarian belum tersedia.");
+      const items = Array.isArray(data.videos) ? data.videos : [];
+      setVideos(items);
+      setSearchMessage(items.length ? `${items.length} video ditemukan. Pilih video untuk mencari preset.` : "Belum ada video yang ditemukan.");
+    } catch (err) {
+      setSearchMessage(err instanceof Error ? err.message : "Pencarian gagal.");
+    } finally {
+      setSearchingVideos(false);
+    }
+  };
+
+  const scanSelectedVideo = (videoUrl: string) => {
+    setUrl(videoUrl);
+    setResult(null);
+    setError("");
+    setVideos([]);
+    setSearchMessage("Video dipilih. Memulai pemindaian preset...");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.setTimeout(() => {
+      const button = document.querySelector<HTMLButtonElement>(".search-card .search-button");
+      button?.click();
+    }, 100);
+  };
+
   const clearResult = () => {
     eventSourceRef.current?.close();
 
@@ -654,16 +707,17 @@ export default function Home() {
               FIND PRESET
             </span>
 
-            <button
+            <a
               className="icon-button menu-button"
-              aria-label="Menu"
-              type="button"
+              aria-label="Document API"
+              href="/docs"
+              title="Document API"
             >
               <Icon
                 name="menu"
                 size={25}
               />
-            </button>
+            </a>
           </div>
         </header>
 
@@ -702,6 +756,34 @@ export default function Home() {
       </section>
 
       <div className="content-wrap">
+        <section className="keyword-search-panel">
+          <div className="keyword-heading">
+            <div><span className="keyword-kicker">TIKTOK DISCOVERY</span><h2>Search Preset</h2></div>
+            <span className="keyword-note">Cari berdasarkan lagu atau kata kunci</span>
+          </div>
+          <div className="keyword-search-row">
+            <input value={keyword} onChange={(e) => setKeyword(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") searchVideos(); }}
+              placeholder="Contoh: Montagem, DJ TikTok..." aria-label="Kata kunci TikTok" />
+            <button type="button" onClick={searchVideos} disabled={searchingVideos}>
+              {searchingVideos ? "Mencari..." : "Cari Video"}
+            </button>
+          </div>
+          {searchMessage && <p className="keyword-status">{searchMessage}</p>}
+          {videos.length > 0 && <div className="video-search-grid">
+            {videos.map((video) => <article className="video-search-card" key={video.id}>
+              {video.cover ? <img src={video.cover} alt="Thumbnail video TikTok" loading="lazy" /> : <div className="video-placeholder">♪</div>}
+              <div className="video-search-info">
+                <strong>{video.nickname || video.author || "TikTok creator"}</strong>
+                <p>{video.description || video.music || "Video TikTok"}</p>
+                <div className="video-search-stats"><span>▶ {formatNumber(video.views)}</span><span>♥ {formatNumber(video.likes)}</span><span>▢ {formatNumber(video.comments)}</span></div>
+                <button type="button" onClick={() => scanSelectedVideo(video.url)}>Cari Preset</button>
+              </div>
+            </article>)}
+          </div>}
+        </section>
+
+        <div className="finder-divider"><span>ATAU CARI DARI LINK VIDEO</span></div>
         <section className="search-card">
           <div className="tiktok-symbol">
             ♪
