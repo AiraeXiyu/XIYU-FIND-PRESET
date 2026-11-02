@@ -68,10 +68,31 @@ async function requestSearch(keyword: string, ttwid: string, offset?: number, se
     cache: "no-store",
     signal: AbortSignal.timeout(12000)
   });
-  if (!response.ok) throw new Error(`TikTok mengembalikan HTTP ${response.status}`);
-  const payload = await response.json();
-  if (payload?.status_code && payload.status_code !== 0) throw new Error("TikTok menolak permintaan pencarian. Coba lagi nanti.");
-  return Array.isArray(payload?.data) ? payload.data as TikTokItem[] : [];
+  const raw = await response.text();
+  if (!response.ok) {
+    throw new Error(`TikTok mengembalikan HTTP ${response.status}. Pencarian mungkin sedang dibatasi.`);
+  }
+  if (!raw.trim()) {
+    throw new Error("TikTok mengirim respons kosong. Coba lagi beberapa saat lagi.");
+  }
+
+  let payload: any;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    const looksLikeHtml = /<\s*(html|!doctype)/i.test(raw.slice(0, 500));
+    throw new Error(looksLikeHtml
+      ? "TikTok mengirim halaman web, bukan data pencarian. Akses pencarian otomatis sedang dibatasi."
+      : "Respons TikTok bukan JSON yang valid. Coba lagi nanti.");
+  }
+
+  if (payload?.status_code && payload.status_code !== 0) {
+    throw new Error(`TikTok menolak pencarian (kode ${payload.status_code}). Coba lagi nanti.`);
+  }
+  if (!Array.isArray(payload?.data)) {
+    throw new Error("Format respons TikTok berubah atau tidak dikenali.");
+  }
+  return payload.data as TikTokItem[];
 }
 
 export async function GET(request: NextRequest) {

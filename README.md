@@ -29,3 +29,8 @@ npm run dev
 ## Important status
 
 Search only discovers candidate videos; it does not scan comments or replies. The selected video's URL is passed to `/api/find` for scanning. The original `/api/find` route still forwards its SSE request to the upstream finder configured in the source project; this revision does not claim that scanner is fully independent or that YouTube URLs are supported by the current route.
+
+
+## Troubleshooting Search
+
+The search route validates the TikTok response before parsing it. Empty responses, HTML challenge pages, non-JSON bodies, and changed response shapes now return a readable error instead of `Unexpected end of JSON input`. This improves error handling but cannot prevent TikTok from rate-limiting or blocking automated requests.
