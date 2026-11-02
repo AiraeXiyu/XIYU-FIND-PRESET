@@ -1,30 +1,37 @@
-# XIYU FIND PRESET
+# XIYU Find Preset
 
-## Fitur
-- Find Preset melalui link video TikTok (scanner yang sudah ada di `/api/find`).
-- Search Preset berdasarkan kata kunci TikTok.
-- Setiap hasil pencarian memiliki tombol **Cari Preset** yang meneruskan URL video terpilih ke scanner `/api/find` yang sama.
+Next.js 15 application for searching TikTok videos and submitting a selected video URL to the existing Find Preset scanner.
 
-## TikTok Search provider
-Source `tiktok-search-api-main` yang disertakan sebagai referensi menggunakan endpoint internal TikTok dan membutuhkan cookie `ttwid`. Karena cookie tersebut merupakan token sesi dan endpoint itu bukan API publik terdokumentasi, source tersebut tidak dipakai untuk mengumpulkan data di server XIYU.
+## TikTok Search configuration
 
-Isi Environment Variables Vercel:
-- `TIKTOK_SEARCH_API_URL`: endpoint provider pencarian TikTok yang penggunaannya diizinkan.
-- `TIKTOK_SEARCH_API_KEY`: opsional, dikirim sebagai Bearer token.
+The Search endpoint uses the `tiktok-search-api` source supplied for this project. It calls TikTok's search endpoint from the server and normalizes the returned video items.
 
-Kontrak provider: `GET <TIKTOK_SEARCH_API_URL>?q=<keyword>` dengan JSON berisi `videos`, `data`, `results`, atau array langsung. Setiap video perlu memiliki `id`, `url`, dan data opsional `description`, `author`, `nickname`, `cover`, `views`, `likes`, `comments`, `music`.
+Add this Environment Variable in Vercel:
 
-## Jalankan
+```env
+TIKTOK_TTWID=your_ttwid_value
+```
+
+Enter only the cookie value, without `ttwid=` and without a semicolon. Keep it server-side; never expose it in frontend code or commit it to Git. Do not use or share a personal authenticated session cookie. TikTok may change or restrict this undocumented endpoint, so availability is not guaranteed.
+
+## Search flow
+
+1. Enter a song name or keyword in Search Preset.
+2. `/api/search?q=...` returns candidate TikTok videos.
+3. Select a video and click **Cari Preset**.
+4. The selected video's URL is submitted to the same `/api/find` route used by manual URL input.
+
+## API documentation
+
+Open `/docs` or select **Document API** in the bottom navigation. It documents the current `/api/search` and `/api/find` routes.
+
+## Run locally
+
 ```bash
 npm install
 npm run dev
 ```
 
-## Catatan
-`/api/search` akan mengembalikan HTTP 503 sampai provider dikonfigurasi. Endpoint `/api/find` pada source asli masih mengarah ke server AM Finder; scanner mandiri belum tersedia pada source yang diberikan.
+## Important status
 
-## Document API
-
-Halaman dokumentasi API tersedia di `/docs` dan dapat dibuka dari ikon menu di header. Dokumentasi memuat base URL contoh, endpoint `GET /api/search`, endpoint `GET /api/find`, parameter, contoh request/response, tombol salin per bagian, dan tombol **Copy All Document**.
-
-Catatan: `GET /api/search` memerlukan `TIKTOK_SEARCH_API_URL` dan opsional `TIKTOK_SEARCH_API_KEY`. `GET /api/find` pada source saat ini masih meneruskan Server-Sent Events ke layanan upstream AM Finder; halaman dokumentasi menyatakan ketergantungan ini secara eksplisit agar tidak memberi kesan bahwa scanner sudah mandiri.
+The Search route is integrated with the supplied TikTok Search source, but depends on a valid `TIKTOK_TTWID` value and TikTok's continued availability of its undocumented search endpoint. The original `/api/find` route remains the scanner implementation from the supplied XIYU project; this revision does not claim to replace its upstream scanner.

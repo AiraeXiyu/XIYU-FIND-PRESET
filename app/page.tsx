@@ -707,17 +707,7 @@ export default function Home() {
               FIND PRESET
             </span>
 
-            <a
-              className="icon-button menu-button"
-              aria-label="Document API"
-              href="/docs"
-              title="Document API"
-            >
-              <Icon
-                name="menu"
-                size={25}
-              />
-            </a>
+
           </div>
         </header>
 
@@ -1469,81 +1459,14 @@ export default function Home() {
       </div>
 
       <nav className="bottom-nav">
-        <button
-          className={
-            activeTab === "home"
-              ? "active"
-              : ""
-          }
-          type="button"
-          onClick={() =>
-            setActiveTab("home")
-          }
-        >
-          <Icon
-            name="home"
-            size={21}
-          />
-
+        <a className="active" href="/" aria-current="page">
+          <Icon name="home" size={21} />
           <span>Home</span>
-        </button>
-
-        <button
-          className={
-            activeTab === "history"
-              ? "active"
-              : ""
-          }
-          type="button"
-          onClick={() =>
-            setActiveTab("history")
-          }
-        >
-          <Icon
-            name="clock"
-            size={21}
-          />
-
-          <span>History</span>
-        </button>
-
-        <button
-          className={
-            activeTab === "saved"
-              ? "active"
-              : ""
-          }
-          type="button"
-          onClick={() =>
-            setActiveTab("saved")
-          }
-        >
-          <Icon
-            name="bookmark"
-            size={21}
-          />
-
-          <span>Saved</span>
-        </button>
-
-        <button
-          className={
-            activeTab === "profile"
-              ? "active"
-              : ""
-          }
-          type="button"
-          onClick={() =>
-            setActiveTab("profile")
-          }
-        >
-          <Icon
-            name="user"
-            size={21}
-          />
-
-          <span>Profile</span>
-        </button>
+        </a>
+        <a href="/docs">
+          <Icon name="copy" size={21} />
+          <span>Document API</span>
+        </a>
       </nav>
     </main>
   );

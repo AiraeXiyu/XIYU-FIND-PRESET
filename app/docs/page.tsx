@@ -16,7 +16,7 @@ const sections = [
     title: "TikTok Search",
     method: "GET",
     path: "/api/search?q=Montagem",
-    description: "Mencari kandidat video TikTok berdasarkan kata kunci. Endpoint ini memerlukan TIKTOK_SEARCH_API_URL yang menunjuk ke provider pencarian yang diizinkan.",
+    description: "Mencari kandidat video TikTok berdasarkan kata kunci. Endpoint memakai modul pencarian TikTok yang diintegrasikan dari source tiktok-search-api yang diberikan. Memerlukan TIKTOK_TTWID di Environment Variables Vercel.",
     request: `GET ${BASE}/api/search?q=Montagem\nAccept: application/json`,
     response: `{
   "ok": true,
@@ -35,7 +35,7 @@ const sections = [
     }
   ]
 }`,
-    params: "q (wajib): kata kunci 2–100 karakter.\nAuthorization (opsional): Bearer key provider, dikonfigurasi di server melalui TIKTOK_SEARCH_API_KEY."
+    params: "q (wajib): kata kunci 2–100 karakter.\nKonfigurasi server: TIKTOK_TTWID (wajib), isi dengan nilai cookie ttwid saja, tanpa awalan ttwid= dan tanpa titik koma. Jangan pernah menaruh nilainya di frontend atau membagikannya."
   },
   {
     title: "Find Preset",
@@ -80,7 +80,7 @@ export default function ApiDocsPage() {
         <DocBlock title="REQUEST" value={s.request} copied={copied} onCopy={copy} id={`${s.title}-request`} />
         <DocBlock title="RESPONSE" value={s.response} copied={copied} onCopy={copy} id={`${s.title}-response`} />
       </article>)}
-      <aside className="docs-notice"><b>Catatan konfigurasi</b><p>Search membutuhkan <code>TIKTOK_SEARCH_API_URL</code>. Isi dengan URL provider yang penggunaannya diizinkan. <code>TIKTOK_SEARCH_API_KEY</code> opsional untuk provider yang memerlukan Bearer token. Jangan menaruh API key di frontend.</p><p>Dokumentasi ini menggambarkan route yang ada pada source project saat ini. Find Preset masih meneruskan SSE ke upstream; dukungan YouTube dan scanner mandiri belum tersedia pada route tersebut.</p></aside>
+      <aside className="docs-notice"><b>Catatan konfigurasi</b><p>Search menggunakan implementasi pencarian dari source TikTok Search yang diberikan. Isi <code>TIKTOK_TTWID</code> di Environment Variables Vercel (nilai cookie saja, tanpa <code>ttwid=</code>). Jangan menaruh cookie di frontend atau membagikannya.</p><p>Dokumentasi ini menggambarkan route yang ada pada source project saat ini. Find Preset masih meneruskan SSE ke upstream; dukungan YouTube dan scanner mandiri belum tersedia pada route tersebut.</p></aside>
     </section>
     <footer className="docs-footer">XIYU FIND PRESET · API DOCUMENTATION</footer>
   </main>;
