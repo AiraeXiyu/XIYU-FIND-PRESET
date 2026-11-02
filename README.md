@@ -2,17 +2,11 @@
 
 Next.js 15 application for searching TikTok videos and submitting a selected video URL to the existing Find Preset scanner.
 
-## TikTok Search configuration
+## TikTok Search
 
-The Search endpoint uses the `tiktok-search-api` source supplied for this project. It calls TikTok's search endpoint from the server and normalizes the returned video items.
+The `/api/search` route follows the request flow from the supplied `tiktok-search-api` source. It attempts to obtain a public visitor `ttwid` cookie automatically by requesting the TikTok homepage. No manual `TIKTOK_TTWID` environment variable or personal login cookie is required.
 
-Add this Environment Variable in Vercel:
-
-```env
-TIKTOK_TTWID=your_ttwid_value
-```
-
-Enter only the cookie value, without `ttwid=` and without a semicolon. Keep it server-side; never expose it in frontend code or commit it to Git. Do not use or share a personal authenticated session cookie. TikTok may change or restrict this undocumented endpoint, so availability is not guaranteed.
+TikTok's web search endpoint is undocumented and may change, rate-limit, or reject automated requests. Automatic visitor-cookie retrieval is best-effort; it is not a guarantee that TikTok will return search results in every Vercel region or deployment.
 
 ## Search flow
 
@@ -23,7 +17,7 @@ Enter only the cookie value, without `ttwid=` and without a semicolon. Keep it s
 
 ## API documentation
 
-Open `/docs` or select **Document API** in the bottom navigation. It documents the current `/api/search` and `/api/find` routes.
+Open `/docs` or select **Document API** in the bottom navigation. The Base URL in the documentation is set to `https://xiyu-find-preset.vercel.app`.
 
 ## Run locally
 
@@ -34,4 +28,4 @@ npm run dev
 
 ## Important status
 
-The Search route is integrated with the supplied TikTok Search source, but depends on a valid `TIKTOK_TTWID` value and TikTok's continued availability of its undocumented search endpoint. The original `/api/find` route remains the scanner implementation from the supplied XIYU project; this revision does not claim to replace its upstream scanner.
+Search only discovers candidate videos; it does not scan comments or replies. The selected video's URL is passed to `/api/find` for scanning. The original `/api/find` route still forwards its SSE request to the upstream finder configured in the source project; this revision does not claim that scanner is fully independent or that YouTube URLs are supported by the current route.

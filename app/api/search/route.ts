@@ -30,6 +30,27 @@ function normalizeVideo(value: TikTokItem) {
   };
 }
 
+async function getGuestTtwid(): Promise<string> {
+  // Ambil visitor cookie publik dari halaman TikTok; tidak memakai cookie login akun.
+  const response = await fetch("https://www.tiktok.com/", {
+    headers: {
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+    },
+    cache: "no-store",
+    redirect: "follow",
+    signal: AbortSignal.timeout(10000)
+  });
+
+  const headers = response.headers as Headers & { getSetCookie?: () => string[] };
+  const cookieLines = typeof headers.getSetCookie === "function"
+    ? headers.getSetCookie()
+    : [headers.get("set-cookie") ?? ""];
+  const match = cookieLines.join("; ").match(/(?:^|[,;]\s*)ttwid=([^;]+)/i);
+  if (!match?.[1]) throw new Error("TikTok tidak memberikan visitor cookie untuk pencarian otomatis. Coba lagi nanti.");
+  return decodeURIComponent(match[1]);
+}
+
 async function requestSearch(keyword: string, ttwid: string, offset?: number, searchId?: string) {
   const url = new URL("https://www.tiktok.com/api/search/general/full/");
   url.searchParams.set("from_page", "search");
@@ -58,11 +79,8 @@ export async function GET(request: NextRequest) {
   if (q.length < 2 || q.length > 100) {
     return NextResponse.json({ ok: false, error: "Kata kunci harus 2–100 karakter." }, { status: 400 });
   }
-  const ttwid = process.env.TIKTOK_TTWID?.trim();
-  if (!ttwid) {
-    return NextResponse.json({ ok: false, error: "Konfigurasi TIKTOK_TTWID belum diisi di Environment Variables Vercel." }, { status: 503 });
-  }
   try {
+    const ttwid = await getGuestTtwid();
     const firstPage = await requestSearch(q, ttwid);
     const firstCommon = firstPage.find((entry) => entry?.common?.doc_id_str)?.common?.doc_id_str;
     const all = [...firstPage];
