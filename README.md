@@ -34,3 +34,7 @@ Search only discovers candidate videos; it does not scan comments or replies. Th
 ## Troubleshooting Search
 
 The search route validates the TikTok response before parsing it. Empty responses, HTML challenge pages, non-JSON bodies, and changed response shapes now return a readable error instead of `Unexpected end of JSON input`. This improves error handling but cannot prevent TikTok from rate-limiting or blocking automated requests.
+
+
+### Diagnostik Search TikTok
+Jika `/api/search` gagal, respons API sekarang menyertakan `code` dan `stage` (misalnya `ambil_visitor_cookie` atau `pencarian_tiktok`). Pesan ini membantu membedakan kegagalan pengambilan visitor cookie dari respons endpoint pencarian TikTok. Cookie visitor tidak ditampilkan ke browser. Jika tahap `pencarian_tiktok` menyebut body kosong, berarti endpoint TikTok tidak mengirim isi respons; aplikasi tidak dapat memperbaiki respons upstream tersebut hanya dengan mengubah parsing JSON.

@@ -531,8 +531,18 @@ export default function Home() {
     setSearchMessage("Mencari video TikTok...");
     try {
       const response = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { cache: "no-store" });
-      const data = await response.json();
-      if (!response.ok || !data.ok) throw new Error(data.error || "Pencarian belum tersedia.");
+      const raw = await response.text();
+      let data: any;
+      try {
+        data = raw.trim() ? JSON.parse(raw) : null;
+      } catch {
+        throw new Error(`Server Search mengembalikan respons bukan JSON (HTTP ${response.status}). Cek deployment dan Runtime Logs Vercel.`);
+      }
+      if (!data) throw new Error(`Server Search mengirim respons kosong (HTTP ${response.status}).`);
+      if (!response.ok || !data.ok) {
+        const stage = data.stage ? ` [tahap: ${data.stage}]` : "";
+        throw new Error(`${data.error || "Pencarian belum tersedia."}${stage}`);
+      }
       const items = Array.isArray(data.videos) ? data.videos : [];
       setVideos(items);
       setSearchMessage(items.length ? `${items.length} video ditemukan. Pilih video untuk mencari preset.` : "Belum ada video yang ditemukan.");

@@ -42,6 +42,9 @@ async function getGuestTtwid(): Promise<string> {
     signal: AbortSignal.timeout(10000)
   });
 
+  if (!response.ok) {
+    throw new Error(`Tahap ambil visitor cookie gagal: halaman TikTok membalas HTTP ${response.status}.`);
+  }
   const headers = response.headers as Headers & { getSetCookie?: () => string[] };
   const cookieLines = typeof headers.getSetCookie === "function"
     ? headers.getSetCookie()
@@ -73,7 +76,8 @@ async function requestSearch(keyword: string, ttwid: string, offset?: number, se
     throw new Error(`TikTok mengembalikan HTTP ${response.status}. Pencarian mungkin sedang dibatasi.`);
   }
   if (!raw.trim()) {
-    throw new Error("TikTok mengirim respons kosong. Coba lagi beberapa saat lagi.");
+    const contentType = response.headers.get("content-type") || "tidak dikirim";
+    throw new Error(`TikTok mengirim body kosong pada endpoint pencarian (HTTP ${response.status}, content-type: ${contentType}). Ini respons dari TikTok, bukan kegagalan parsing di aplikasi.`);
   }
 
   let payload: any;
@@ -100,8 +104,11 @@ export async function GET(request: NextRequest) {
   if (q.length < 2 || q.length > 100) {
     return NextResponse.json({ ok: false, error: "Kata kunci harus 2–100 karakter." }, { status: 400 });
   }
+  let stage = "validasi";
   try {
+    stage = "ambil_visitor_cookie";
     const ttwid = await getGuestTtwid();
+    stage = "pencarian_tiktok";
     const firstPage = await requestSearch(q, ttwid);
     const firstCommon = firstPage.find((entry) => entry?.common?.doc_id_str)?.common?.doc_id_str;
     const all = [...firstPage];
@@ -109,6 +116,7 @@ export async function GET(request: NextRequest) {
     if (firstCommon) {
       for (const offset of [24, 36]) {
         try {
+          stage = `pencarian_lanjutan_offset_${offset}`;
           const next = await requestSearch(q, ttwid, offset, firstCommon);
           if (!next.length) break;
           all.push(...next);
@@ -124,6 +132,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: true, keyword: q, count: videos.length, videos });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Pencarian TikTok gagal.";
-    return NextResponse.json({ ok: false, error: message }, { status: 502 });
+    // Stage disertakan agar penyebab 502 dapat diketahui dari respons Network,
+    // tanpa menampilkan atau membocorkan cookie visitor.
+    return NextResponse.json({
+      ok: false,
+      code: "TIKTOK_SEARCH_UPSTREAM_FAILED",
+      stage,
+      error: message
+    }, { status: 502, headers: { "Cache-Control": "no-store" } });
   }
 }
