@@ -30,7 +30,7 @@ No search-provider credentials or environment variables are currently required i
 
 ## API documentation
 
-Open `/docs` or select **Document API** in the bottom navigation. The documentation includes the Base URL, request parameters, and response examples.
+Open `/docs` or select **Document API** in the bottom navigation. The documentation includes Search JSON examples, Find SSE event format, `found: true` and `found: false` payload examples, and request parameters.
 
 ## Run locally
 
@@ -41,7 +41,7 @@ npm run dev
 
 ## Important status
 
-Search discovers candidate videos only; it does not scan comments or replies. The selected video's URL is passed to `/api/find` for scanning. The existing `/api/find` route remains unchanged and continues forwarding its SSE request to the finder service already configured in the project. This revision does not make the scanner independent.
+Search discovers candidate videos only; it does not scan comments or replies. The selected video's URL is passed to `/api/find` for scanning. The `/api/find` route forwards its SSE request to the provider configured through `FIND_API_URL`. This revision does not make the scanner independent.
 
 ## Troubleshooting Search
 
@@ -49,3 +49,17 @@ Search discovers candidate videos only; it does not scan comments or replies. Th
 - `502`: the search service is unavailable, returns an unexpected response, or cannot be reached.
 - Empty `cover`: thumbnail metadata was unavailable; the result itself can still be used.
 - Irrelevant results: try a more specific keyword. Search relevance is determined by the upstream index and cannot be guaranteed by the UI.
+
+
+## Environment variables
+
+Configure the Find provider endpoint in your deployment environment:
+
+```env
+FIND_API_URL=https://your-find-provider.example/api/find
+```
+
+The endpoint must support Server-Sent Events (SSE). The application streams
+its response to the browser. Find remains dependent on the provider configured
+in this variable; moving the URL into an environment variable does not make
+the backend standalone.

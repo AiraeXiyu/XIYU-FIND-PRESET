@@ -43,10 +43,89 @@ const sections = [
     title: "Find Preset",
     method: "GET",
     path: "/api/find?url={TIKTOK_VIDEO_URL}",
-    description: "Memulai pemindaian preset dari URL video TikTok. URL dapat berasal dari hasil Search atau dimasukkan secara manual.",
-    request: `GET ${BASE}/api/find?url=https%3A%2F%2Fwww.tiktok.com%2F%40creator%2Fvideo%2F123456789\nAccept: text/event-stream`,
-    response: "Content-Type: text/event-stream; charset=utf-8\nRespons berupa Server-Sent Events (SSE). Nama event dan payload mengikuti layanan finder.",
-    params: "url (wajib): URL video TikTok yang valid.\nbat (opsional): parameter yang diteruskan ke finder.\nchg (opsional): parameter yang diteruskan ke finder."
+    description: "Memulai pemindaian preset dari URL video TikTok. Endpoint mengirim hasil secara bertahap menggunakan Server-Sent Events (SSE).",
+    request: `GET ${BASE}/api/find?url=https%3A%2F%2Fwww.tiktok.com%2F%40creator%2Fvideo%2F123456789
+Accept: text/event-stream`,
+    response: `event: result
+data: {
+  "ok": true,
+  "found": true,
+  "author": "@creator",
+  "videoUrl": "https://www.tiktok.com/@creator/video/123456789",
+  "presetLinks": [
+    {
+      "type": "5mb",
+      "url": "https://alightcreative.com/am/share/...",
+      "title": "Preset title",
+      "thumb": "https://...",
+      "thumbs": ["https://..."],
+      "source": "comment",
+      "detail": "@creator (balasan)",
+      "byAuthor": true,
+      "verified": true
+    },
+    {
+      "type": "xml",
+      "url": "https://drive.google.com/file/d/.../view",
+      "title": "Preset title",
+      "size": "85.0 KB",
+      "ratio": "1:1",
+      "source": "comment",
+      "detail": "@creator (balasan)",
+      "byAuthor": true,
+      "verified": true
+    }
+  ],
+  "context": {
+    "level": "core",
+    "matched": ["alightmotion", "preset"]
+  },
+  "input": "https://vt.tiktok.com/...",
+  "videoId": "123456789",
+  "video": {},
+  "music": {},
+  "authorDetail": {},
+  "otherLinks": [],
+  "scanned": {
+    "description": true,
+    "bio": true,
+    "bioLinkPage": true,
+    "comments": 11,
+    "replies": 4
+  }
+}
+
+event: result
+data: {
+  "ok": true,
+  "found": false,
+  "author": "@creator",
+  "videoUrl": "https://www.tiktok.com/@creator/video/123456789",
+  "presetLinks": [],
+  "message": "Preset (5mb/xml) tidak ditemukan.",
+  "checked": {
+    "description": true,
+    "bio": true,
+    "bioLinkPage": false,
+    "linkInBio": 0,
+    "comments": 200,
+    "commentsDisabled": false,
+    "replies": 99,
+    "context": "none",
+    "invalidLinks": 0
+  },
+  "input": "https://vt.tiktok.com/...",
+  "videoId": "123456789",
+  "otherLinks": [],
+  "scanned": {
+    "description": true,
+    "bio": true,
+    "bioLinkPage": false,
+    "comments": 200,
+    "replies": 99
+  }
+}`,
+    params: "url (wajib): URL video TikTok, termasuk URL pendek vt.tiktok.com.\nbat (opsional): diteruskan ke layanan pemindai.\nchg (opsional): diteruskan ke layanan pemindai.\n\nSSE: respons menggunakan Content-Type text/event-stream. Hasil pemindaian dikirim melalui event: result dengan JSON pada baris data:. Client harus membaca event result, bukan menganggap seluruh respons sebagai satu JSON biasa.\n\nField utama: ok, found, author, videoUrl, presetLinks, input, videoId, otherLinks, dan scanned. Saat found=true, presetLinks dapat berisi item type 5mb atau xml. Saat found=false, presetLinks berupa array kosong dan respons dapat menyertakan message serta checked.\n\nObjek video, music, authorDetail, context, checked, dan scanned dapat memiliki isi berbeda sesuai data yang berhasil diperoleh. Angka 200 komentar dan 99 balasan pada contoh adalah nilai dari satu hasil scrape, bukan jaminan batas tetap untuk semua video."
   }
 ];
 
@@ -82,7 +161,7 @@ export default function ApiDocsPage() {
         <DocBlock title="REQUEST" value={s.request} copied={copied} onCopy={copy} id={`${s.title}-request`} />
         <DocBlock title="RESPONSE" value={s.response} copied={copied} onCopy={copy} id={`${s.title}-response`} />
       </article>)}
-      <aside className="docs-notice"><b>Catatan penggunaan</b><p>Search hanya mengembalikan kandidat video. Setelah memilih video, gunakan URL tersebut pada endpoint Find Preset untuk memulai pemindaian.</p><p>Thumbnail bersifat opsional. Jika metadata thumbnail tidak tersedia, aplikasi tetap menampilkan kartu hasil tanpa gambar.</p><p>Search dan Find adalah dua endpoint terpisah. Ketersediaan hasil Search bergantung pada layanan indeks pencarian, sedangkan proses pemindaian mengikuti layanan finder.</p></aside>
+      <aside className="docs-notice"><b>Catatan penggunaan</b><p>Search hanya mengembalikan kandidat video. Setelah memilih video, gunakan URL tersebut pada endpoint Find Preset untuk memulai pemindaian.</p><p>Thumbnail bersifat opsional. Jika metadata thumbnail tidak tersedia, aplikasi tetap menampilkan kartu hasil tanpa gambar.</p><p>Search dan Find adalah dua endpoint terpisah. Search mengembalikan kandidat video, sedangkan Find mengirimkan hasil pemindaian melalui SSE.</p><p>Find memerlukan konfigurasi FIND_API_URL pada environment deployment. Endpoint yang dikonfigurasi harus mendukung SSE. Menyimpan URL di environment variable tidak menghilangkan ketergantungan pada penyedia layanan.</p></aside>
     </section>
     <footer className="docs-footer">XIYU FIND PRESET · API DOCUMENTATION</footer>
   </main>;

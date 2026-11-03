@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const UPSTREAM = "https://amfinder.web.id/api/find";
+const FIND_SERVICE_URL = process.env.FIND_API_URL?.trim();
 
 function validTikTokUrl(value: string) {
   try {
@@ -51,7 +51,22 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const upstreamUrl = new URL(UPSTREAM);
+  if (!FIND_SERVICE_URL) {
+    return new Response(JSON.stringify({ ok: false, error: "Find service is not configured. Set FIND_API_URL." }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
+  let upstreamUrl: URL;
+  try {
+    upstreamUrl = new URL(FIND_SERVICE_URL);
+  } catch {
+    return new Response(JSON.stringify({ ok: false, error: "FIND_API_URL must be a valid URL." }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
   upstreamUrl.searchParams.set("url", input);
 
   const bat = request.nextUrl.searchParams.get("bat");
