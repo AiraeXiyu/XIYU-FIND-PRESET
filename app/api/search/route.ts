@@ -1,144 +1,318 @@
+```ts
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type TikTokItem = {
-  item?: { id?: string; desc?: string; author?: any; stats?: any; video?: any; music?: any };
-  common?: { doc_id_str?: string };
+type SearchVideo = {
+  id: string;
+  url: string;
+  description: string;
+  author: string;
+  nickname: string;
+  cover: string;
+  views: number;
+  likes: number;
+  comments: number;
+  music: string;
 };
 
-function normalizeVideo(value: TikTokItem) {
-  const item = value?.item ?? {};
+type SearchProviderResult = {
+  ok: boolean;
+  videos: SearchVideo[];
+  error?: string;
+};
+
+const JSON_HEADERS = {
+  "Cache-Control": "no-store, max-age=0",
+  "Content-Type": "application/json; charset=utf-8"
+};
+
+function response(
+  body: SearchProviderResult,
+  status = 200
+) {
+  return NextResponse.json(body, {
+    status,
+    headers: JSON_HEADERS
+  });
+}
+
+function cleanText(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.trim();
+}
+
+function cleanNumber(value: unknown): number {
+  const number = Number(value ?? 0);
+
+  if (!Number.isFinite(number) || number < 0) {
+    return 0;
+  }
+
+  return number;
+}
+
+/**
+ * Normalisasi hasil video.
+ *
+ * Fungsi ini hanya menerima data video publik
+ * yang diberikan oleh sumber pencarian.
+ */
+function normalizeVideo(value: any): SearchVideo | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const item = value.item ?? value;
   const author = item.author ?? {};
   const stats = item.stats ?? {};
   const video = item.video ?? {};
-  const id = String(item.id ?? value?.common?.doc_id_str ?? "");
-  const username = String(author.uniqueId ?? "");
-  if (!id || !username) return null;
+  const music = item.music ?? {};
+
+  const id = cleanText(
+    item.id ?? value.id ?? value.aweme_id
+  );
+
+  const username = cleanText(
+    author.uniqueId ??
+    author.unique_id ??
+    value.author
+  );
+
+  if (!id || !username) {
+    return null;
+  }
+
+  const cover = cleanText(
+    video.cover ??
+    video.originCover ??
+    video.origin_cover ??
+    value.cover
+  );
+
   return {
     id,
-    url: `https://www.tiktok.com/@${encodeURIComponent(username)}/video/${id}`,
-    description: String(item.desc ?? ""),
+    url: `https://www.tiktok.com/@${encodeURIComponent(
+      username
+    )}/video/${encodeURIComponent(id)}`,
+    description: cleanText(
+      item.desc ?? value.description
+    ),
     author: username,
-    nickname: String(author.nickname ?? username),
-    cover: String(video.cover ?? video.originCover ?? ""),
-    views: Number(stats.playCount ?? 0),
-    likes: Number(stats.diggCount ?? 0),
-    comments: Number(stats.commentCount ?? 0),
-    music: String(item.music?.title ?? "")
+    nickname:
+      cleanText(author.nickname ?? value.nickname) ||
+      username,
+    cover,
+    views: cleanNumber(
+      stats.playCount ?? stats.play_count ?? value.views
+    ),
+    likes: cleanNumber(
+      stats.diggCount ?? stats.digg_count ?? value.likes
+    ),
+    comments: cleanNumber(
+      stats.commentCount ??
+      stats.comment_count ??
+      value.comments
+    ),
+    music: cleanText(
+      music.title ?? value.music
+    )
   };
 }
 
-async function getGuestTtwid(): Promise<string> {
-  // Ambil visitor cookie publik dari halaman TikTok; tidak memakai cookie login akun.
-  const response = await fetch("https://www.tiktok.com/", {
-    headers: {
-      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-    },
-    cache: "no-store",
-    redirect: "follow",
-    signal: AbortSignal.timeout(10000)
-  });
+/**
+ * Mengambil video dari provider pencarian yang
+ * memang menyediakan akses resmi/diizinkan.
+ *
+ * Konfigurasi:
+ *
+ * TIKTOK_SEARCH_API_URL
+ *
+ * Provider harus menerima query melalui parameter q
+ * dan mengembalikan JSON:
+ *
+ * {
+ *   "videos": [
+ *     {
+ *       "id": "...",
+ *       "url": "...",
+ *       "description": "...",
+ *       "author": "...",
+ *       "nickname": "...",
+ *       "cover": "...",
+ *       "views": 1000,
+ *       "likes": 100,
+ *       "comments": 10,
+ *       "music": "..."
+ *     }
+ *   ]
+ * }
+ */
+async function searchProvider(
+  keyword: string
+): Promise<SearchVideo[]> {
+  const providerUrl = process.env.TIKTOK_SEARCH_API_URL;
 
-  if (!response.ok) {
-    throw new Error(`Tahap ambil visitor cookie gagal: halaman TikTok membalas HTTP ${response.status}.`);
-  }
-  const headers = response.headers as Headers & { getSetCookie?: () => string[] };
-  const cookieLines = typeof headers.getSetCookie === "function"
-    ? headers.getSetCookie()
-    : [headers.get("set-cookie") ?? ""];
-  const match = cookieLines.join("; ").match(/(?:^|[,;]\s*)ttwid=([^;]+)/i);
-  if (!match?.[1]) throw new Error("TikTok tidak memberikan visitor cookie untuk pencarian otomatis. Coba lagi nanti.");
-  return decodeURIComponent(match[1]);
-}
-
-async function requestSearch(keyword: string, ttwid: string, offset?: number, searchId?: string) {
-  const url = new URL("https://www.tiktok.com/api/search/general/full/");
-  url.searchParams.set("from_page", "search");
-  url.searchParams.set("keyword", keyword);
-  if (typeof offset === "number") url.searchParams.set("offset", String(offset));
-  if (searchId) url.searchParams.set("search_id", searchId);
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      Accept: "application/json, text/plain, */*",
-      Cookie: `ttwid=${ttwid};`,
-      Referer: `https://www.tiktok.com/search?q=${encodeURIComponent(keyword)}`,
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36"
-    },
-    cache: "no-store",
-    signal: AbortSignal.timeout(12000)
-  });
-  const raw = await response.text();
-  if (!response.ok) {
-    throw new Error(`TikTok mengembalikan HTTP ${response.status}. Pencarian mungkin sedang dibatasi.`);
-  }
-  if (!raw.trim()) {
-    const contentType = response.headers.get("content-type") || "tidak dikirim";
-    throw new Error(`TikTok mengirim body kosong pada endpoint pencarian (HTTP ${response.status}, content-type: ${contentType}). Ini respons dari TikTok, bukan kegagalan parsing di aplikasi.`);
+  if (!providerUrl) {
+    throw new Error(
+      "Sumber pencarian belum dikonfigurasi. Atur TIKTOK_SEARCH_API_URL menggunakan provider pencarian yang memiliki akses resmi."
+    );
   }
 
-  let payload: any;
+  let endpoint: URL;
+
   try {
-    payload = JSON.parse(raw);
+    endpoint = new URL(providerUrl);
   } catch {
-    const looksLikeHtml = /<\s*(html|!doctype)/i.test(raw.slice(0, 500));
-    throw new Error(looksLikeHtml
-      ? "TikTok mengirim halaman web, bukan data pencarian. Akses pencarian otomatis sedang dibatasi."
-      : "Respons TikTok bukan JSON yang valid. Coba lagi nanti.");
+    throw new Error(
+      "TIKTOK_SEARCH_API_URL bukan URL yang valid."
+    );
   }
 
-  if (payload?.status_code && payload.status_code !== 0) {
-    throw new Error(`TikTok menolak pencarian (kode ${payload.status_code}). Coba lagi nanti.`);
+  if (endpoint.protocol !== "https:") {
+    throw new Error(
+      "Provider pencarian harus menggunakan HTTPS."
+    );
   }
-  if (!Array.isArray(payload?.data)) {
-    throw new Error("Format respons TikTok berubah atau tidak dikenali.");
+
+  endpoint.searchParams.set("q", keyword);
+
+  const controller = new AbortController();
+
+  const timeout = setTimeout(
+    () => controller.abort(),
+    15000
+  );
+
+  try {
+    const upstream = await fetch(endpoint, {
+      method: "GET",
+      headers: {
+        Accept: "application/json"
+      },
+      cache: "no-store",
+      signal: controller.signal
+    });
+
+    if (!upstream.ok) {
+      throw new Error(
+        `Provider pencarian membalas HTTP ${upstream.status}.`
+      );
+    }
+
+    const contentType =
+      upstream.headers.get("content-type") ?? "";
+
+    if (!contentType.toLowerCase().includes("json")) {
+      throw new Error(
+        "Provider pencarian tidak mengembalikan JSON."
+      );
+    }
+
+    const payload = await upstream.json();
+
+    if (!payload || typeof payload !== "object") {
+      throw new Error(
+        "Format respons provider tidak valid."
+      );
+    }
+
+    if (payload.ok === false) {
+      throw new Error(
+        cleanText(payload.error) ||
+        "Provider gagal melakukan pencarian."
+      );
+    }
+
+    const rawVideos = Array.isArray(payload.videos)
+      ? payload.videos
+      : Array.isArray(payload.data)
+        ? payload.data
+        : [];
+
+    const seen = new Set<string>();
+    const videos: SearchVideo[] = [];
+
+    for (const raw of rawVideos) {
+      const video = normalizeVideo(raw);
+
+      if (!video || seen.has(video.id)) {
+        continue;
+      }
+
+      seen.add(video.id);
+      videos.push(video);
+
+      if (videos.length >= 36) {
+        break;
+      }
+    }
+
+    return videos;
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.name === "AbortError"
+    ) {
+      throw new Error(
+        "Provider pencarian melewati batas waktu 15 detik."
+      );
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  return payload.data as TikTokItem[];
 }
 
 export async function GET(request: NextRequest) {
-  const q = request.nextUrl.searchParams.get("q")?.trim() ?? "";
-  if (q.length < 2 || q.length > 100) {
-    return NextResponse.json({ ok: false, error: "Kata kunci harus 2–100 karakter." }, { status: 400 });
+  const keyword =
+    request.nextUrl.searchParams.get("q")?.trim() ?? "";
+
+  if (keyword.length < 2) {
+    return response(
+      {
+        ok: false,
+        videos: [],
+        error: "Masukkan minimal 2 karakter."
+      },
+      400
+    );
   }
-  let stage = "validasi";
+
+  if (keyword.length > 100) {
+    return response(
+      {
+        ok: false,
+        videos: [],
+        error: "Kata kunci maksimal 100 karakter."
+      },
+      400
+    );
+  }
+
   try {
-    stage = "ambil_visitor_cookie";
-    const ttwid = await getGuestTtwid();
-    stage = "pencarian_tiktok";
-    const firstPage = await requestSearch(q, ttwid);
-    const firstCommon = firstPage.find((entry) => entry?.common?.doc_id_str)?.common?.doc_id_str;
-    const all = [...firstPage];
-    // Ambil dua halaman tambahan dengan pola offset/search_id dari source TikTok Search yang diberikan.
-    if (firstCommon) {
-      for (const offset of [24, 36]) {
-        try {
-          stage = `pencarian_lanjutan_offset_${offset}`;
-          const next = await requestSearch(q, ttwid, offset, firstCommon);
-          if (!next.length) break;
-          all.push(...next);
-        } catch { break; }
-      }
-    }
-    const seen = new Set<string>();
-    const videos = all.map(normalizeVideo).filter((video): video is NonNullable<ReturnType<typeof normalizeVideo>> => {
-      if (!video || seen.has(video.id)) return false;
-      seen.add(video.id);
-      return true;
-    }).slice(0, 36);
-    return NextResponse.json({ ok: true, keyword: q, count: videos.length, videos });
+    const videos = await searchProvider(keyword);
+
+    return response({
+      ok: true,
+      videos
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Pencarian TikTok gagal.";
-    // Stage disertakan agar penyebab 502 dapat diketahui dari respons Network,
-    // tanpa menampilkan atau membocorkan cookie visitor.
-    return NextResponse.json({
-      ok: false,
-      code: "TIKTOK_SEARCH_UPSTREAM_FAILED",
-      stage,
-      error: message
-    }, { status: 502, headers: { "Cache-Control": "no-store" } });
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Pencarian video gagal.";
+
+    return response(
+      {
+        ok: false,
+        videos: [],
+        error: message
+      },
+      502
+    );
   }
 }
+```
