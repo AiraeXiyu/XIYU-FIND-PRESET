@@ -429,8 +429,8 @@ export default function Home() {
     }
   }, []);
 
-  const search = useCallback(() => {
-    const value = url.trim();
+  const search = useCallback((selectedUrl?: string) => {
+    const value = (selectedUrl ?? url).trim();
 
     if (!value) {
       setError("Paste a TikTok link first.");
@@ -560,10 +560,7 @@ export default function Home() {
     setVideos([]);
     setSearchMessage("Video dipilih. Memulai pemindaian preset...");
     window.scrollTo({ top: 0, behavior: "smooth" });
-    window.setTimeout(() => {
-      const button = document.querySelector<HTMLButtonElement>(".search-card .search-button");
-      button?.click();
-    }, 100);
+    search(videoUrl);
   };
 
   const clearResult = () => {

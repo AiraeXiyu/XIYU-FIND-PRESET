@@ -1,23 +1,36 @@
 # XIYU Find Preset
 
-Next.js 15 application for searching TikTok videos and submitting a selected video URL to the existing Find Preset scanner.
+Next.js 15 application for discovering TikTok videos by keyword and submitting a selected video URL to the Find Preset scanner.
 
-## TikTok Search
+## Search Videos
 
-The `/api/search` route follows the request flow from the supplied `tiktok-search-api` source. It attempts to obtain a public visitor `ttwid` cookie automatically by requesting the TikTok homepage. No manual `TIKTOK_TTWID` environment variable or personal login cookie is required.
+The `GET /api/search?q=...` endpoint searches indexed public TikTok videos using a server-side search provider. The provider request is kept on the server; the browser only communicates with the XIYU endpoint.
 
-TikTok's web search endpoint is undocumented and may change, rate-limit, or reject automated requests. Automatic visitor-cookie retrieval is best-effort; it is not a guarantee that TikTok will return search results in every Vercel region or deployment.
+The endpoint normalizes the results into one response format:
+
+- `id`: video ID
+- `url`: TikTok video URL
+- `description`: video caption/description
+- `author`: creator username
+- `nickname`: creator display name
+- `cover`: public thumbnail URL, when available
+- `views`, `likes`, `comments`: video statistics
+- `music`: music title, when available
+
+Search returns up to 12 unique video candidates. Thumbnail lookup is best-effort: a missing thumbnail does not prevent a video from appearing in the results. Search relevance, result count, availability, and response time depend on the upstream search index and may change without notice.
+
+No search-provider credentials or environment variables are currently required in `.env`.
 
 ## Search flow
 
 1. Enter a song name or keyword in Search Preset.
-2. `/api/search?q=...` returns candidate TikTok videos.
-3. Select a video and click **Cari Preset**.
-4. The selected video's URL is submitted to the same `/api/find` route used by manual URL input.
+2. The browser requests `/api/search?q=...` on this application.
+3. Select a result and click **Cari Preset**.
+4. The selected TikTok URL is passed directly to the existing `/api/find` route.
 
 ## API documentation
 
-Open `/docs` or select **Document API** in the bottom navigation. The Base URL in the documentation is set to `https://xiyu-find-preset.vercel.app`.
+Open `/docs` or select **Document API** in the bottom navigation. The documentation includes the Base URL, request parameters, and response examples.
 
 ## Run locally
 
@@ -28,13 +41,11 @@ npm run dev
 
 ## Important status
 
-Search only discovers candidate videos; it does not scan comments or replies. The selected video's URL is passed to `/api/find` for scanning. The original `/api/find` route still forwards its SSE request to the upstream finder configured in the source project; this revision does not claim that scanner is fully independent or that YouTube URLs are supported by the current route.
-
+Search discovers candidate videos only; it does not scan comments or replies. The selected video's URL is passed to `/api/find` for scanning. The existing `/api/find` route remains unchanged and continues forwarding its SSE request to the finder service already configured in the project. This revision does not make the scanner independent.
 
 ## Troubleshooting Search
 
-The search route validates the TikTok response before parsing it. Empty responses, HTML challenge pages, non-JSON bodies, and changed response shapes now return a readable error instead of `Unexpected end of JSON input`. This improves error handling but cannot prevent TikTok from rate-limiting or blocking automated requests.
-
-
-### Diagnostik Search TikTok
-Jika `/api/search` gagal, respons API sekarang menyertakan `code` dan `stage` (misalnya `ambil_visitor_cookie` atau `pencarian_tiktok`). Pesan ini membantu membedakan kegagalan pengambilan visitor cookie dari respons endpoint pencarian TikTok. Cookie visitor tidak ditampilkan ke browser. Jika tahap `pencarian_tiktok` menyebut body kosong, berarti endpoint TikTok tidak mengirim isi respons; aplikasi tidak dapat memperbaiki respons upstream tersebut hanya dengan mengubah parsing JSON.
+- `400`: keyword is shorter than 2 characters or longer than 100 characters.
+- `502`: the search service is unavailable, returns an unexpected response, or cannot be reached.
+- Empty `cover`: thumbnail metadata was unavailable; the result itself can still be used.
+- Irrelevant results: try a more specific keyword. Search relevance is determined by the upstream index and cannot be guaranteed by the UI.

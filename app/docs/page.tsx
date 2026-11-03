@@ -8,15 +8,15 @@ const sections = [
     title: "Base URL",
     method: "BASE",
     path: BASE,
-    description: "Alamat utama API XIYU Preset Finder yang sudah terpasang di Vercel.",
+    description: "Alamat utama API XIYU Find Preset.",
     request: BASE,
     response: "Base URL tidak mengembalikan JSON. Tambahkan path endpoint yang tersedia di bawah."
   },
   {
-    title: "TikTok Search",
+    title: "Search Videos",
     method: "GET",
     path: "/api/search?q=Montagem",
-    description: "Mencari video TikTok berdasarkan kata kunci. Hasil pencarian hanya berisi kandidat video; pemindaian preset dilakukan setelah pengguna memilih video dan mengirim URL-nya ke Find Preset.",
+    description: "Mencari kandidat video TikTok berdasarkan kata kunci. Endpoint mengembalikan caption, akun, thumbnail (jika tersedia), dan statistik video.",
     request: `GET ${BASE}/api/search?q=Montagem\nAccept: application/json`,
     response: `{
   "ok": true,
@@ -33,20 +33,20 @@ const sections = [
       "views": 120000,
       "likes": 8500,
       "comments": 120,
-      "music": "Music title"
+      "music": ""
     }
   ]
 }`,
-    params: "q (wajib): kata kunci pencarian, 2–100 karakter.\nTidak memerlukan TIKTOK_TTWID atau API key yang diisi manual. Server mencoba memperoleh visitor cookie publik secara otomatis dari halaman TikTok. TikTok dapat membatasi atau menolak request otomatis; jika itu terjadi endpoint dapat mengembalikan error 502."
+    params: "q (wajib): kata kunci pencarian, 2–100 karakter.\nRespons berisi maksimal 12 kandidat video. Thumbnail diambil dari metadata publik video dan dapat kosong jika tidak tersedia. Jumlah hasil dan relevansi bergantung pada indeks pencarian yang digunakan."
   },
   {
     title: "Find Preset",
     method: "GET",
     path: "/api/find?url={TIKTOK_VIDEO_URL}",
-    description: "Memulai pemindaian preset dari URL video. Untuk alur Search Preset, kirim URL video yang dipilih ke endpoint yang sama ini. Find saat ini meneruskan stream dari layanan finder upstream yang sudah ada di source project.",
+    description: "Memulai pemindaian preset dari URL video TikTok. URL dapat berasal dari hasil Search atau dimasukkan secara manual.",
     request: `GET ${BASE}/api/find?url=https%3A%2F%2Fwww.tiktok.com%2F%40creator%2Fvideo%2F123456789\nAccept: text/event-stream`,
-    response: "Content-Type: text/event-stream; charset=utf-8\nRespons berupa Server-Sent Events (SSE). Nama event dan payload mengikuti layanan finder upstream.",
-    params: "url (wajib): URL video TikTok yang valid.\nbat (opsional): parameter yang diteruskan ke finder upstream.\nchg (opsional): parameter yang diteruskan ke finder upstream."
+    response: "Content-Type: text/event-stream; charset=utf-8\nRespons berupa Server-Sent Events (SSE). Nama event dan payload mengikuti layanan finder.",
+    params: "url (wajib): URL video TikTok yang valid.\nbat (opsional): parameter yang diteruskan ke finder.\nchg (opsional): parameter yang diteruskan ke finder."
   }
 ];
 
@@ -70,7 +70,7 @@ export default function ApiDocsPage() {
     <section className="docs-intro">
       <span className="docs-kicker">DEVELOPER CENTER</span>
       <h1>Document API</h1>
-      <p>Dokumentasi resmi endpoint API XIYU Find Preset, parameter, request, dan contoh response.</p>
+      <p>Dokumentasi endpoint API XIYU Find Preset, parameter, request, dan contoh response.</p>
       <button className="docs-copy-all" onClick={() => copy("all", all)}>{copied === "all" ? "✓ Berhasil disalin" : "▢ Copy All Document"}</button>
       <div className="docs-base"><small>BASE URL</small><code>{BASE}</code><button onClick={() => copy("base", BASE)}>{copied === "base" ? "Copied" : "Copy"}</button></div>
     </section>
@@ -82,7 +82,7 @@ export default function ApiDocsPage() {
         <DocBlock title="REQUEST" value={s.request} copied={copied} onCopy={copy} id={`${s.title}-request`} />
         <DocBlock title="RESPONSE" value={s.response} copied={copied} onCopy={copy} id={`${s.title}-response`} />
       </article>)}
-      <aside className="docs-notice"><b>Catatan penggunaan</b><p>Search mengambil daftar kandidat video TikTok saja. Setelah memilih video, gunakan URL video tersebut pada endpoint Find Preset untuk memulai pemindaian.</p><p>Search mencoba memperoleh visitor cookie publik TikTok secara otomatis. Tidak perlu mengisi <code>TIKTOK_TTWID</code> di Environment Variables. Ketersediaan hasil tetap bergantung pada respons, pembatasan, dan perubahan sistem TikTok.</p><p>Endpoint Find pada source saat ini masih meneruskan SSE ke layanan finder upstream. Dokumentasi ini tidak mengklaim scanner tersebut sudah mandiri.</p></aside>
+      <aside className="docs-notice"><b>Catatan penggunaan</b><p>Search hanya mengembalikan kandidat video. Setelah memilih video, gunakan URL tersebut pada endpoint Find Preset untuk memulai pemindaian.</p><p>Thumbnail bersifat opsional. Jika metadata thumbnail tidak tersedia, aplikasi tetap menampilkan kartu hasil tanpa gambar.</p><p>Search dan Find adalah dua endpoint terpisah. Ketersediaan hasil Search bergantung pada layanan indeks pencarian, sedangkan proses pemindaian mengikuti layanan finder.</p></aside>
     </section>
     <footer className="docs-footer">XIYU FIND PRESET · API DOCUMENTATION</footer>
   </main>;
