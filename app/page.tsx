@@ -815,7 +815,7 @@ export default function Home() {
           <button
             className="search-button"
             type="button"
-            onClick={search}
+            onClick={() => search()}
             disabled={status === "running"}
             aria-label="Search"
           >
